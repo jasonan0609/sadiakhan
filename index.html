@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Valentine Quest</title>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');
+        
+        body { 
+            background: #fff5f7; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            font-family: 'Inter', sans-serif; 
+            overflow: hidden; 
+            margin: 0;
+            color: #4a4a4a;
+            transition: background-color 0.5s;
+        }
+
+        h2 { color: #ff4d6d; margin-top: 40px; font-weight: 700; text-align: center; height: 40px; }
+
+        /* --- GAME WORLD --- */
+        #game-container { 
+            position: relative; 
+            width: 500px; 
+            height: 400px; 
+            border: 8px solid #3e2723; 
+            border-radius: 15px;
+            margin-top: 20px; 
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
+            background-color: #43a047; 
+            background-image: url('https://www.transparenttextures.com/patterns/graphy.png');
+            background-size: 200px 200px;
+            overflow: hidden;
+        }
+
+        #player { 
+            position: absolute; 
+            width: 50px; height: 50px; /* Adjust size to her face */
+            z-index: 10; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            transition: all 0.1s ease-out;
+            background: none; /* Remove the pink background */
+        }
+
+        #player-img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain; /* Keeps the sticker shape perfect */
+            filter: drop-shadow(0 4px 6px rgba(0,0,0,0.4)); /* Adds depth to the sticker */
+        }
+
+        #goal { position: absolute; font-size: 35px; opacity: 0.3; transition: opacity 0.5s, transform 0.3s; z-index: 5; }
+        .heart-checkpoint { position: absolute; font-size: 25px; cursor: default; z-index: 5; filter: drop-shadow(0 0 5px white); }
+
+        .wall {
+            position: absolute;
+            background-color: #5d5d5d;
+            background-image: url('https://www.transparenttextures.com/patterns/dark-matter.png');
+            background-size: 60px 60px;
+            border: 1px solid #333;
+            box-shadow: 2px 2px 8px rgba(0,0,0,0.4), inset 0 0 10px rgba(0,0,0,0.5);
+            z-index: 2;
+        }
+
+        /* --- ENVELOPE MODAL --- */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            background: #fffdf5; 
+            width: 750px; height: 550px;
+            border-radius: 4px; border: 1px solid #e0e0e0;
+            box-shadow: 0 50px 100px rgba(0,0,0,0.3);
+            z-index: 1000; overflow: visible; perspective: 1500px;
+            flex-direction: column; align-items: center;
+        }
+
+        .modal-header {
+            position: relative; 
+            top: 110px; /* Adjust this to move it up or down on the paper */
+            width: 100%;
+            text-align: center; 
+            color: #ff4d6d; 
+            font-size: 32px; 
+            font-weight: 700;
+            
+            /* THE FIX: Higher than the flap (110) */
+            z-index: 120; 
+            
+            /* Optional: helps it pop against the cream paper */
+            text-shadow: 1px 1px 0px rgba(255,255,255,0.5); 
+        }
+
+        /* The Envelope Flap */
+        .modal::before {
+            content: "";
+            position: absolute; top: 0; left: 0; width: 100%; height: 220px;
+            background: #fdf2f4;
+            clip-path: polygon(0% 0%, 100% 0%, 50% 100%);
+            border-bottom: 1px solid #ffccd5;
+            z-index: 110; transform-origin: top;
+            transition: transform 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .modal.open::before { transform: rotateX(160deg); z-index: 50; }
+
+        /* --- BUTTONS --- */
+        #yes-btn {
+            position: absolute; top: 250px; left: 50%; transform: translate(-50%, -50%);
+            background: #b22222; color: white; width: 110px; height: 110px;
+            border-radius: 50%; border: 4px solid #8b0000;
+            font-weight: bold; font-size: 16px; cursor: pointer; z-index: 120;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            display: flex; align-items: center; justify-content: center;
+            transition: transform 0.2s;
+        }
+        #yes-btn:hover { transform: translate(-50%, -50%) scale(1.1); }
+
+        #no-playpen {
+            position: absolute;
+            top: 320px; 
+            left: 56.5%;
+            transform: translateX(-50%);
+            width: 600px; height: 180px;
+            z-index: 101;
+        }
+
+        #no-btn { 
+            position: absolute; padding: 12px 30px; background: #f0f0f0; 
+            color: #888; border: 1px solid #ddd; font-weight: 700; border-radius: 12px;
+            white-space: nowrap; cursor: pointer; transition: all 0.2s ease;
+        }
+
+        /* --- SUCCESS CONTENT --- */
+        #success-screen {
+            display: none; position: absolute; top: 0; left: 0;
+            width: 100%; height: 100%; background: #fffdf5;
+            z-index: 105; padding-top: 140px; text-align: center;
+            animation: paperSlideUp 1s ease-out forwards;
+        }
+
+        @keyframes paperSlideUp {
+            0% { transform: translateY(50px); opacity: 0; }
+            100% { transform: translateY(0); opacity: 1; }
+        }
+
+        .angry-emoji { position: fixed; pointer-events: none; font-size: 50px; z-index: 2000; }
+    </style>
+</head>
+<body>
+
+    <div id="main-content">
+        <h2 id="status-text">Collect the hearts then go claim the gift!</h2>
+        <div id="game-container">
+            <div class="wall" style="top: 0; left: 0; width: 100%; height: 15px;"></div>
+            <div class="wall" style="bottom: 0; left: 0; width: 100%; height: 15px;"></div>
+            <div class="wall" style="top: 0; left: 0; width: 15px; height: 100%;"></div>
+            <div class="wall" style="top: 0; right: 0; width: 15px; height: 100%;"></div>
+            
+            <div class="wall" style="top: 100px; left: 15px; width: 300px; height: 15px;"></div>
+            <div class="wall" style="top: 200px; left: 185px; width: 300px; height: 15px;"></div>
+            <div class="wall" style="top: 300px; left: 15px; width: 300px; height: 15px;"></div>
+            
+            <div class="heart-checkpoint" id="heart1" style="top: 50px; left: 400px;">❤️</div>
+            <div class="heart-checkpoint" id="heart2" style="top: 150px; left: 50px;">❤️</div>
+            <div class="heart-checkpoint" id="heart3" style="top: 250px; left: 400px;">❤️</div>
+            
+            <div id="player" style="top: 40px; left: 40px;">
+                <img src="https://i.postimg.cc/DysbCCKx/Sadiaface-removebg-preview.png" id="player-img">
+            </div>
+            <div id="goal" style="top: 335px; left: 435px;">🎁</div>
+        </div>
+    </div>
+
+    <div id="valentine-modal" class="modal">
+        <div class="modal-header">Hey Sadia, Will you be my Valentine?</div>
+        
+        <button id="yes-btn" onclick="celebrate()">YES</button>
+        
+        <div id="no-playpen">
+            <button id="no-btn" style="top: 20%; left: 35%;">No</button>
+        </div>
+
+        <div id="success-screen">
+            <h1 style="color: #ff4d6d; font-size: 80px; margin: 0;">❤️</h1>
+            <h1 style="color: #ff4d6d; font-size: 32px; padding: 0 40px;">It's going to be our first Valentine together!</h1>
+            <p style="color: #888; font-size: 20px;">Now tell Jason what you want as a gift right now</p>
+        </div>
+    </div>
+
+    <script>
+        const player = document.getElementById('player');
+        const goal = document.getElementById('goal');
+        const modal = document.getElementById('valentine-modal');
+        const noBtn = document.getElementById('no-btn');
+        const playpen = document.getElementById('no-playpen');
+        const statusText = document.getElementById('status-text');
+        const successScreen = document.getElementById('success-screen');
+
+        let pTop = 40; let pLeft = 40;
+        const MOVE_SPEED = 20; // Reduced for precision
+        let heartsCollected = 0;
+        const totalHearts = 3;
+        const messages = ["For the late-night calls...", "For making NYC feel like home...", "For everything yet to come..."];
+
+        function isTouching(a, b) {
+            const r1 = a.getBoundingClientRect();
+            const r2 = b.getBoundingClientRect();
+            const padding = 5; // Forgiving hitbox
+            return !(r1.top + padding > r2.bottom - padding || r1.right - padding < r2.left + padding || r1.bottom - padding < r2.top + padding || r1.left + padding > r2.right - padding);
+        }
+
+        window.addEventListener('keydown', (e) => {
+            if (modal.style.display === 'flex') return; // Freeze game when modal is open
+
+            const container = document.getElementById('game-container');
+            let nextTop = pTop, nextLeft = pLeft;
+
+            if(e.key === 'ArrowUp') nextTop -= MOVE_SPEED;
+            if(e.key === 'ArrowDown') nextTop += MOVE_SPEED;
+            if(e.key === 'ArrowLeft') nextLeft -= MOVE_SPEED;
+            if(e.key === 'ArrowRight') nextLeft += MOVE_SPEED;
+
+            // Boundary clamping
+            nextTop = Math.max(15, Math.min(container.clientHeight - 50, nextTop));
+            nextLeft = Math.max(15, Math.min(container.clientWidth - 50, nextLeft));
+
+            const walls = document.querySelectorAll('.wall');
+            let hitWall = false;
+            const containerRect = container.getBoundingClientRect();
+            const pSize = 35;
+
+            walls.forEach(wall => {
+                const wR = wall.getBoundingClientRect();
+                const nPR = {
+                    top: containerRect.top + nextTop,
+                    bottom: containerRect.top + nextTop + pSize,
+                    left: containerRect.left + nextLeft,
+                    right: containerRect.left + nextLeft + pSize
+                };
+                if (!(nPR.top >= wR.bottom || nPR.bottom <= wR.top || nPR.right <= wR.left || nPR.left >= wR.right)) {
+                    hitWall = true;
+                }
+            });
+
+            if (!hitWall) {
+                pTop = nextTop; pLeft = nextLeft;
+                player.style.top = pTop + 'px';
+                player.style.left = pLeft + 'px';
+                checkCollisions();
+            }
+        });
+
+        function checkCollisions() {
+            // Hearts
+            for (let i = 1; i <= 3; i++) {
+                const h = document.getElementById(`heart${i}`);
+                if (h && h.style.display !== 'none' && isTouching(player, h)) {
+                    h.style.display = 'none';
+                    heartsCollected++;
+                    statusText.innerText = messages[heartsCollected - 1];
+                    if(heartsCollected === totalHearts) {
+                        goal.style.opacity = "1";
+                        goal.style.transform = "scale(1.2)";
+                        statusText.innerText = "The gift is now unlocked! 🎁";
+                    }
+                }
+            }
+            // Goal
+            if (isTouching(player, goal)) {
+                if (heartsCollected < totalHearts) {
+                    statusText.innerText = "Collect all hearts first! ❤️";
+                } else {
+                    modal.style.display = 'flex';
+                    document.body.style.backgroundColor = "rgba(0,0,0,0.3)";
+                }
+            }
+        }
+
+        noBtn.addEventListener('mouseover', () => {
+            spawnEmoji();
+            const maxX = playpen.clientWidth - noBtn.offsetWidth;
+            const maxY = playpen.clientHeight - noBtn.offsetHeight;
+            noBtn.style.left = Math.random() * maxX + 'px';
+            noBtn.style.top = Math.random() * maxY + 'px';
+        });
+
+        function spawnEmoji() {
+            const emojis = ['😠', '😤', '🙅‍♀️', '💢', '👎', '🙄', '❌'];
+            const emoji = document.createElement('div');
+            emoji.className = 'angry-emoji';
+            emoji.innerText = emojis[Math.floor(Math.random() * emojis.length)];
+            emoji.style.left = Math.random() * (window.innerWidth - 50) + 'px';
+            emoji.style.top = Math.random() * (window.innerHeight - 50) + 'px';
+            document.body.appendChild(emoji);
+            setTimeout(() => emoji.remove(), 2000);
+        }
+
+        function celebrate() {
+            modal.classList.add('open');
+            document.getElementById('yes-btn').style.display = 'none';
+            document.getElementById('no-playpen').style.display = 'none';
+            document.querySelector('.modal-header').style.opacity = '0';
+
+            setTimeout(() => {
+                successScreen.style.display = 'block';
+                confetti({
+                    particleCount: 200, spread: 80, origin: { y: 0.6 },
+                    colors: ['#ff4d6d', '#ffccd5', '#ffffff']
+                });
+            }, 600);
+        }
+    </script>
+</body>
+</html>
